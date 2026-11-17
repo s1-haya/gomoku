@@ -1,0 +1,15 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Sandbox directories
+sandbox/
+sandboxes/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Testing and tooling caches
+.pytest_cache/
+.mypy_cache/
