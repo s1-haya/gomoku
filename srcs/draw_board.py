@@ -1,169 +1,171 @@
-import sys
 import pygame
+import sys
 import numpy as np
 
-# --- 1. テキストデータをパースして NumPy 配列にする関数 ---
-def parse_board_from_text(text_data):
-    """
-    スペース区切りのテキストデータを 19x19 の 2次元 NumPy 配列に変換する
-    """
-    lines = text_data.strip().split('\n')
-    board_list = []
-    for line in lines:
-        if line.strip().startswith('#') or not line.strip():
-            continue
-        row = [int(x) for x in line.strip().split()]
-        if len(row) == 19:
-            board_list.append(row)
-            
-    board_arr = np.array(board_list, dtype=int)
-    if board_arr.shape != (19, 19):
-        raise ValueError(f"ボード全体のサイズが 19x19 ではありません (現在: {board_arr.shape})")
-        
-    return board_arr
+# --- Board & Layout Constants ---
+GRID_SIZE = 19
+CELL_SIZE = 40
+MARGIN = 40
+BOARD_TOP_OFFSET = 45
+EXTRA_HEIGHT = 70
+CAPTURE_GOAL = 10
+
+STATUS_POS = (MARGIN, 10)
+ICON_RADIUS = 10
+MY_ICON_POS = (MARGIN + 20, 40)
+OPP_ICON_Y = 40
+OPP_ICON_OFFSET_X = 20
+COUNTER_TEXT_OFFSET = (15, -10)
+STONE_RADIUS_PADDING = 3
+STAR_RADIUS = 4
+LINE_WIDTH = 1
+FONT_SIZE = 28
+WINDOW_TITLE = "19x19 Board Viewer"
+
+EMPTY_CELL = 0
+STONE_ME = 1
+STONE_OPPONENT = 2
+
+STAR_POINTS = (
+    (3, 3), (3, 9), (3, 15),
+    (9, 3), (9, 9), (9, 15),
+    (15, 3), (15, 9), (15, 15),
+)
+
+# --- Color Palette ---
+COLOR_BOARD = (220, 179, 92)
+COLOR_LINE = (0, 0, 0)
+COLOR_ME = (30, 30, 30)
+COLOR_OPPONENT = (240, 240, 240)
+COLOR_TEXT = (30, 30, 30)
 
 
-# --- 2. Pygame によるボード描画クラス ---
-class GomokuViewer:
-    def __init__(self, board_matrix, my_captured=0, opponent_captured=0, cell_size=40, margin=40):
+def draw_board(board, my_captured, opponent_captured):
+    """Render a 19x19 board with captured stone counts for me and opponent."""
+    board_pixel_size = CELL_SIZE * (GRID_SIZE - 1)
+    width = board_pixel_size + MARGIN * 2
+    height = board_pixel_size + MARGIN * 2 + EXTRA_HEIGHT
+
+    if not pygame.get_init():
         pygame.init()
-        self.board = board_matrix
-        self.my_captured = my_captured          # 自分の取得石数
-        self.opponent_captured = opponent_captured  # 相手の取得石数
-        self.cell_size = cell_size
-        self.margin = margin
-        
-        # 19x19 碁盤の画面サイズ計算 (上部に情報表示用のエリアを 40px 確保)
-        self.grid_size = 19
-        board_pixel_size = self.cell_size * (self.grid_size - 1)
-        self.width = board_pixel_size + self.margin * 2
-        self.height = board_pixel_size + self.margin * 2 + 50  
-        
-        self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Gomoku Board with Visual Captures")
-        
-        self.font = pygame.font.SysFont(None, 32)
-        
-        # 色の定義 (RGB)
-        self.COLOR_BOARD = (220, 179, 92)     # 碁盤の色
-        self.COLOR_LINE = (0, 0, 0)           # 罫線の色
-        self.COLOR_ME = (30, 30, 30)          # 自分 (黒)
-        self.COLOR_OPPONENT = (240, 240, 240) # 相手 (白)
-        self.COLOR_TEXT = (30, 30, 30)
 
-    def draw_board(self):
-        self.screen.fill(self.COLOR_BOARD)
-        
-        # --- 上部に「石のアイコン ＋ 数字」の形式で取得石数を描画 ---
-        # 1. 自分の石アイコンとカウント
-        my_icon_x = self.margin + 20
-        my_icon_y = 25
-        icon_radius = 12
-        
-        # 黒石アイコン（自分）
-        pygame.draw.circle(self.screen, self.COLOR_ME, (my_icon_x, my_icon_y), icon_radius)
-        
-        # カウント文字列 (例: " : 4 / 10")
-        my_text_surface = self.font.render(f" : {self.my_captured} / 10", True, self.COLOR_TEXT)
-        self.screen.blit(my_text_surface, (my_icon_x + 15, my_icon_y - 10))
+    screen = pygame.display.set_mode((width, height))
+    pygame.display.set_caption(WINDOW_TITLE)
+    font = pygame.font.SysFont(None, FONT_SIZE)
 
-        # 2. 相手の石アイコンとカウント
-        # 画面の右側半分に配置
-        opp_icon_x = self.width // 2 + 40
-        opp_icon_y = 25
-        
-        # 白石アイコン（相手）＋ 縁取り線
-        pygame.draw.circle(self.screen, self.COLOR_OPPONENT, (opp_icon_x, opp_icon_y), icon_radius)
-        pygame.draw.circle(self.screen, self.COLOR_LINE, (opp_icon_x, opp_icon_y), icon_radius, 1)
-        
-        # カウント文字列 (例: " : 2 / 10")
-        opp_text_surface = self.font.render(f" : {self.opponent_captured} / 10", True, self.COLOR_TEXT)
-        self.screen.blit(opp_text_surface, (opp_icon_x + 15, opp_icon_y - 10))
+    screen.fill(COLOR_BOARD)
 
-        # --- ボード描画のオフセット ---
-        board_top_margin = self.margin + 30
+    # Captured stone counters
+    my_x, my_y = MY_ICON_POS
+    pygame.draw.circle(screen, COLOR_ME, (my_x, my_y), ICON_RADIUS)
+    my_label = font.render(f" : {my_captured} / {CAPTURE_GOAL}", True, COLOR_TEXT)
+    screen.blit(my_label, (my_x + COUNTER_TEXT_OFFSET[0], my_y + COUNTER_TEXT_OFFSET[1]))
 
-        # 罫線の描画 (19x19)
-        for i in range(self.grid_size):
-            start_x = self.margin
-            start_y = board_top_margin + i * self.cell_size
-            end_x = self.margin + self.cell_size * (self.grid_size - 1)
-            end_y = board_top_margin + i * self.cell_size
-            pygame.draw.line(self.screen, self.COLOR_LINE, (start_x, start_y), (end_x, end_y), 1)
-            
-            start_x = self.margin + i * self.cell_size
-            start_y = board_top_margin
-            end_x = self.margin + i * self.cell_size
-            end_y = board_top_margin + self.cell_size * (self.grid_size - 1)
-            pygame.draw.line(self.screen, self.COLOR_LINE, (start_x, start_y), (end_x, end_y), 1)
+    opp_x = width // 2 + OPP_ICON_OFFSET_X
+    opp_y = OPP_ICON_Y
+    pygame.draw.circle(screen, COLOR_OPPONENT, (opp_x, opp_y), ICON_RADIUS)
+    pygame.draw.circle(screen, COLOR_LINE, (opp_x, opp_y), ICON_RADIUS, LINE_WIDTH)
+    opp_label = font.render(f" : {opponent_captured} / {CAPTURE_GOAL}", True, COLOR_TEXT)
+    screen.blit(opp_label, (opp_x + COUNTER_TEXT_OFFSET[0], opp_y + COUNTER_TEXT_OFFSET[1]))
 
-        # 星（天元や星のポイント）を描画
-        star_points = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
-        for r, c in star_points:
-            x = self.margin + c * self.cell_size
-            y = board_top_margin + r * self.cell_size
-            pygame.draw.circle(self.screen, self.COLOR_LINE, (x, y), 4)
+    board_top = MARGIN + BOARD_TOP_OFFSET
 
-        # 盤上の石を描画
-        for r in range(self.grid_size):
-            for c in range(self.grid_size):
-                val = self.board[r, c]
-                if val == 0:
-                    continue
-                
-                x = self.margin + c * self.cell_size
-                y = board_top_margin + r * self.cell_size
-                radius = self.cell_size // 2 - 3
-                
-                if val == 1:  # 自分 (黒石)
-                    pygame.draw.circle(self.screen, self.COLOR_ME, (x, y), radius)
-                elif val == 2:  # 相手 (白石)
-                    pygame.draw.circle(self.screen, self.COLOR_OPPONENT, (x, y), radius)
+    # Grid lines
+    for i in range(GRID_SIZE):
+        y = board_top + i * CELL_SIZE
+        pygame.draw.line(screen, COLOR_LINE, (MARGIN, y), (MARGIN + board_pixel_size, y), LINE_WIDTH)
 
-    def run(self):
-        clock = pygame.time.Clock()
-        running = True
-        
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+        x = MARGIN + i * CELL_SIZE
+        pygame.draw.line(screen, COLOR_LINE, (x, board_top), (x, board_top + board_pixel_size), LINE_WIDTH)
+
+    # Star points
+    for r, c in STAR_POINTS:
+        sx = MARGIN + c * CELL_SIZE
+        sy = board_top + r * CELL_SIZE
+        pygame.draw.circle(screen, COLOR_LINE, (sx, sy), STAR_RADIUS)
+
+    # Stones
+    stone_radius = CELL_SIZE // 2 - STONE_RADIUS_PADDING
+    for r in range(GRID_SIZE):
+        for c in range(GRID_SIZE):
+            val = board[r][c]
+            if val == EMPTY_CELL:
+                continue
+
+            cx = MARGIN + c * CELL_SIZE
+            cy = board_top + r * CELL_SIZE
+
+            if val == STONE_ME:
+                pygame.draw.circle(screen, COLOR_ME, (cx, cy), stone_radius)
+            elif val == STONE_OPPONENT:
+                pygame.draw.circle(screen, COLOR_OPPONENT, (cx, cy), stone_radius)
+                pygame.draw.circle(screen, COLOR_LINE, (cx, cy), stone_radius, LINE_WIDTH)
+
+    pygame.display.flip()
+    return screen
+
+
+TEST_FPS = 30
+TEST_MY_CAPTURED = 3
+TEST_OPPONENT_CAPTURED = 2
+TEST_QUIT_KEYS = (pygame.K_ESCAPE, pygame.K_q)
+
+
+def test_draw_board():
+    """Run an interactive window to visually test draw_board(board, my_captured, opponent_captured)."""
+    board = np.zeros((GRID_SIZE, GRID_SIZE), dtype=int)
+
+    # Sample stones for visual verification
+    board[3, 3] = STONE_ME
+    board[3, 4] = STONE_ME
+    board[3, 15] = STONE_OPPONENT
+    board[4, 15] = STONE_OPPONENT
+    board[9, 9] = STONE_ME
+    board[15, 3] = STONE_OPPONENT
+    board[15, 15] = STONE_ME
+
+    my_captured = TEST_MY_CAPTURED
+    opponent_captured = TEST_OPPONENT_CAPTURED
+
+    draw_board(board, my_captured, opponent_captured)
+    clock = pygame.time.Clock()
+    running = True
+
+    print("Controls:")
+    print("  [1 / 2] : Adjust my captured count (- / +)")
+    print("  [3 / 4] : Adjust opponent captured count (- / +)")
+    print("  [ESC/Q] : Quit")
+
+    while running:
+        updated = False
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key in TEST_QUIT_KEYS:
                     running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                        running = False
+                elif event.key == pygame.K_1:
+                    my_captured = max(0, my_captured - 1)
+                    updated = True
+                elif event.key == pygame.K_2:
+                    my_captured += 1
+                    updated = True
+                elif event.key == pygame.K_3:
+                    opponent_captured = max(0, opponent_captured - 1)
+                    updated = True
+                elif event.key == pygame.K_4:
+                    opponent_captured += 1
+                    updated = True
 
-            self.draw_board()
-            pygame.display.flip()
-            clock.tick(30)
+        if updated:
+            draw_board(board, my_captured, opponent_captured)
 
-        pygame.quit()
-        sys.exit()
+        clock.tick(TEST_FPS)
+
+    pygame.quit()
+    sys.exit()
 
 
-# --- 3. 実行メイン ---
 if __name__ == "__main__":
-    raw_board_text = """
-    0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    2 2 2 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-    """
-
-    board_matrix = parse_board_from_text(raw_board_text)
-    viewer = GomokuViewer(board_matrix, my_captured=4, opponent_captured=2)
-    viewer.run()
+    test_draw_board()

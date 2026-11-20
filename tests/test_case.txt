@@ -1,4 +1,6 @@
-# 19x19 Gomoku Test Case (Format: 0=Empty, 1=Black/Me, 2=White/Opponent)
+2
+0
+
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
