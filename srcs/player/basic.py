@@ -1,5 +1,5 @@
-from numpy import ndarray
 from abc import ABC, abstractmethod
+from srcs.game_state import GameState
 
 
 class Player(ABC):
@@ -8,12 +8,12 @@ class Player(ABC):
         self._is_five: bool = False
 
     @abstractmethod
-    def get_move(self, board: ndarray) -> tuple[int, int]:
+    def get_move(self, game_state: GameState) -> tuple[int, int]:
         """
         Select a position for the player's next move.
 
         Args:
-            board: The current 19x19 Gomoku board.
+            game_state: the state Gomoku Game required.
 
         Returns:
             A tuple (row, col) representing the selected position.
