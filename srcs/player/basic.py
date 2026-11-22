@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from srcs.game_state import GameState
+from srcs.gomoku.game_state import GameState
 
 
 class Player(ABC):

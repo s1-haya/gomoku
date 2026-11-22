@@ -1,5 +1,5 @@
 from srcs.player.basic import Player
-from srcs.game_state import GameState
+from srcs.gomoku.game_state import GameState
 
 
 class HumanPlayer(Player):
