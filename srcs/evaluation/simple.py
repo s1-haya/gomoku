@@ -3,12 +3,35 @@ from srcs.gomoku.game_state import GameState
 
 
 class SimpleMoveEvaluator:
+    """Evaluate candidate moves using nearby stones and board position.
+
+    This is a lightweight heuristic intended for initial AI testing
+    and move ordering, rather than competitive Gomoku play.
+
+    Scoring rules:
+        - +2 for each adjacent friendly stone.
+        - +1 for each adjacent opponent stone.
+        - -0.01 per Manhattan distance from the board center.
+
+    This evaluator does not consider captures, winning patterns,
+    or threats that require immediate defense.
+    """
     def score(
         self,
         state: GameState,
         move: tuple[int, int],
         stone: int,
     ) -> float:
+        """Score a candidate move based on its eight neighbors and center distance.
+
+		Args:
+			state: Current game state before the move.
+			move: Board position (row, column) to evaluate.
+			stone: Player's stone value (1 or -1).
+
+		Returns:
+			A heuristic score; higher values indicate preferred moves.
+		"""
         board = state.board
         row, col = move
         rows, cols = board.shape

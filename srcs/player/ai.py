@@ -13,6 +13,23 @@ from srcs.evaluation.simple import SimpleMoveEvaluator
 
 
 class AIPlayer(Player):
+    """Select Gomoku moves using Minimax with alpha-beta pruning.
+
+    The AI searches possible future game states by alternating
+    between its own moves (maximizing) and the opponent's moves
+    (minimizing).
+
+    Candidate moves are generated near existing stones and ordered
+    using an interchangeable MoveEvaluator. Game rules are provided
+    externally, keeping the AI independent of rule implementations.
+
+    The current board evaluation is a simple heuristic intended
+    for initial testing and benchmarking, not competitive play.
+
+    Attributes:
+        nodes: Number of Minimax nodes visited in the last search.
+        elapsed_time: Duration of the last completed search in seconds.
+    """
     def __init__(
         self,
         evaluator: MoveEvaluator | None = None,
@@ -41,7 +58,32 @@ class AIPlayer(Player):
         self.elapsed_time = 0.0
 
     def get_move(self, game_state: GameState) -> tuple[int, int]:
-        """Choose the best move using Minimax."""
+        """Select the highest-scoring legal move using Minimax.
+
+        Generate nearby candidate moves, filter out illegal moves,
+        and order the remaining moves using the evaluator.
+
+        Each candidate is simulated and searched to the configured
+        depth. The move with the highest Minimax score is selected,
+        assuming the opponent also plays optimally.
+
+        The search uses alpha-beta pruning to skip branches that
+        cannot improve the result.
+
+        Args:
+            game_state: Current board and capture counts.
+
+        Returns:
+            The selected move as (row, column).
+
+        Raises:
+            ValueError: If no rules object was provided or no legal
+                candidate moves are available.
+
+        Note:
+            Updates nodes and elapsed_time for the completed search.
+            The original game state is expected to remain unchanged.
+        """
         if self._rules is None:
             raise ValueError("GameRules must be provided")
 
@@ -90,9 +132,32 @@ class AIPlayer(Player):
         return best_move
 
     def _generate_candidates(
-        self, game_state: GameState, radius: int = 2
+        self,
+        game_state: GameState,
+        radius: int = 2,
     ) -> list[tuple[int, int]]:
-        """Generate empty positions near existing stones."""
+        """Generate empty positions near existing stones.
+
+        Search within a square neighborhood around every occupied
+        intersection, including stones belonging to both players.
+
+        Duplicate positions and occupied intersections are excluded.
+        Candidates are returned in sorted order for deterministic
+        behavior.
+
+        Args:
+            game_state: Current game state.
+            radius: Maximum row and column distance from each stone.
+                Defaults to 2.
+
+        Returns:
+            A sorted list of unique empty positions as (row, column).
+            Returns the board center if the board is empty.
+
+        Note:
+            This method does not check game-specific move restrictions.
+            Legal moves must be filtered separately using GameRules.
+        """
         board = game_state.board
         rows, cols = board.shape
 
@@ -125,7 +190,27 @@ class AIPlayer(Player):
         candidates: list[tuple[int, int]],
         stone: int,
     ) -> list[tuple[int, int]]:
-        """Order candidates using the injected evaluator."""
+        """Sort candidate moves by their heuristic scores.
+
+        Evaluate each candidate from the specified player's perspective
+        and return moves in descending score order.
+
+        Promising moves are searched first to improve the effectiveness
+        of alpha-beta pruning.
+
+        Args:
+            game_state: Current game state.
+            candidates: Candidate positions to order.
+            stone: Player whose moves are being evaluated (1 or -1).
+
+        Returns:
+            A new list of candidate moves sorted from highest to
+            lowest heuristic score.
+
+        Note:
+            Move ordering affects search efficiency but does not
+            change the Minimax objective.
+        """
         return sorted(
             candidates,
             key=lambda move: self._evaluator.score(
@@ -137,7 +222,30 @@ class AIPlayer(Player):
         )
 
     def _evaluate(self, game_state: GameState) -> float:
-        """Evaluate the board from the AI's perspective."""
+        """Estimate the board's advantage from the AI's perspective.
+
+        Generate nearby candidate moves and find the highest heuristic
+        move score for both the AI and its opponent.
+
+        The board score is calculated as:
+
+            best_ai_move_score - best_opponent_move_score
+
+        Positive values favor the AI, while negative values favor
+        the opponent.
+
+        Args:
+            game_state: Game state to evaluate.
+
+        Returns:
+            The difference between the best available move scores.
+            Returns 0.0 if no candidates are generated.
+
+        Note:
+            This is a temporary board evaluation heuristic.
+            It does not directly evaluate winning patterns, captures,
+            or immediate threats.
+        """
         candidates = self._generate_candidates(game_state)
 
         if not candidates:
@@ -167,7 +275,41 @@ class AIPlayer(Player):
         alpha: float,
         beta: float,
     ) -> float:
-        """Search future moves using Minimax with alpha-beta pruning."""
+        """Evaluate future game states using Minimax with alpha-beta pruning.
+
+        Recursively simulate legal moves while alternating between
+        maximizing (AI) and minimizing (opponent) turns.
+
+        The search stops when a winner is detected, the game ends,
+        or the remaining depth reaches zero. Non-terminal leaf
+        states are evaluated using the board heuristic.
+
+        Alpha and beta track the best bounds found so far, allowing
+        branches that cannot affect the final decision to be skipped.
+
+        Args:
+            game_state: Current game state at this search node.
+            depth: Number of remaining plies to explore.
+            maximizing: True for the AI's turn (MAX), False for
+                the opponent's turn (MIN).
+            alpha: Best score guaranteed to the maximizing player
+                along the current search path.
+            beta: Best score guaranteed to the minimizing player
+                along the current search path.
+
+        Returns:
+            The Minimax score of the current state from the AI's
+            perspective. Positive scores favor the AI; negative
+            scores favor the opponent.
+
+        Note:
+            Terminal wins receive large positive or negative scores.
+            The remaining depth is added to favor faster wins and
+            slower losses.
+
+            If no legal candidates are generated, the current
+            implementation falls back to the heuristic evaluation.
+        """
         self.nodes += 1
 
         winner = self._rules.get_winner(game_state)
