@@ -2,13 +2,19 @@ from __future__ import annotations
 from srcs.player.basic import Player
 from srcs.gomoku.game_state import GameState
 from time import perf_counter
+from srcs.evaluation.base import MoveEvaluator
+from srcs.evaluation.simple import SimpleMoveEvaluator
 import numpy as np
-from __future__ import annotations
 
 
 class AIPlayer(Player):
-    def __init__(self):
+    def __init__(self, evaluator: MoveEvaluator | None = None):
         super().__init__()
+        self._evaluator = (
+            evaluator
+            if evaluator is not None
+            else SimpleMoveEvaluator()
+        )
 
     def get_move(self, game_state: GameState) -> tuple[int, int]:
         """Choose the best move for the current board."""
@@ -48,9 +54,19 @@ class AIPlayer(Player):
         self,
         game_state: GameState,
         candidates: list[tuple[int, int]],
+        stone: int,
     ) -> list[tuple[int, int]]:
-        """Sort candidate moves by their estimated priority."""
-        pass
+        """Order candidates using the injected evaluator."""
+        return sorted(
+            candidates,
+            key=lambda move: self._evaluator.score(
+                game_state,
+                move,
+                stone,
+            ),
+            reverse=True,
+        )
+
 
     def _evaluate(self, game_state: GameState) -> float:
         """Evaluate the board from the AI's perspective."""
