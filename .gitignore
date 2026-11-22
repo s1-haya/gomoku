@@ -13,3 +13,6 @@ venv/
 # Testing and tooling caches
 .pytest_cache/
 .mypy_cache/
+
+# history for max
+.history/
