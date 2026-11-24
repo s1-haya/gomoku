@@ -8,7 +8,207 @@ from srcs.evaluation.constants import PATTERN_RADIUS
 from srcs.evaluation.pattern_detector import (
     _extract_lines,
     _match_patterns,
+    detect_board_patterns,
+    detect_local_patterns,
 )
+
+
+class TestDetectBoardPatterns(unittest.TestCase):
+    """Test full-board stone pattern evaluation."""
+
+    def setUp(self):
+        self.board = np.zeros((19, 19), dtype=np.int8)
+
+    def test_empty_board(self):
+        self.assertEqual(detect_board_patterns(self.board, 1), 0)
+        self.assertEqual(detect_board_patterns(self.board, -1), 0)
+
+    def test_single_stone(self):
+        self.board[9, 9] = 1
+
+        self.assertEqual(detect_board_patterns(self.board, 1), 0)
+
+    def test_free_four(self):
+        self.board[9, 7:11] = 1
+
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            100_000,
+        )
+
+    def test_white_free_four(self):
+        self.board[9, 7:11] = -1
+
+        self.assertEqual(
+            detect_board_patterns(self.board, -1),
+            100_000,
+        )
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            0,
+        )
+
+    def test_board_boundary(self):
+        self.board[9, 0:4] = 1
+
+        # The board boundary blocks one side.
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            10_000,
+        )
+
+    def test_multiple_directions(self):
+        self.board[9, 7:11] = 1
+        self.board[2:5, 2] = 1
+
+        # Horizontal Free Four + Vertical Free Three.
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            101_000,
+        )
+
+    def test_duplicate_patterns(self):
+        self.board[9, 8:11] = 1
+
+        # Overlapping Free Three patterns count only once.
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            1_000,
+        )
+
+    def test_independent_patterns_on_same_line(self):
+        self.board[9, 2:6] = 1
+        self.board[9, 12:15] = 1
+
+        # Free Four + Free Three.
+        self.assertEqual(
+            detect_board_patterns(self.board, 1),
+            101_000,
+        )
+
+    def test_before_and_after_move(self):
+        self.board[9, 7:10] = 1
+
+        before = detect_board_patterns(self.board, 1)
+
+        self.board[9, 10] = 1
+
+        after = detect_board_patterns(self.board, 1)
+
+        self.assertEqual(before, 1_000)
+        self.assertEqual(after, 100_000)
+        self.assertEqual(after - before, 99_000)
+
+    def test_board_is_not_modified(self):
+        self.board[9, 7:11] = 1
+        original = self.board.copy()
+
+        detect_board_patterns(self.board, 1)
+        detect_board_patterns(self.board, -1)
+
+        np.testing.assert_array_equal(self.board, original)
+
+
+class TestDetectLocalPatterns(unittest.TestCase):
+    """Test local stone pattern evaluation."""
+
+    def setUp(self):
+        self.board = np.zeros((19, 19), dtype=np.int8)
+        self.move = (9, 9)
+
+    def test_empty_board(self):
+        self.assertEqual(
+            detect_local_patterns(self.board, self.move, 1),
+            0,
+        )
+
+    def test_free_four(self):
+        self.board[9, 7:11] = 1
+
+        self.assertEqual(
+            detect_local_patterns(self.board, self.move, 1),
+            100_000,
+        )
+
+    def test_white_free_four(self):
+        self.board[9, 7:11] = -1
+
+        self.assertEqual(
+            detect_local_patterns(self.board, self.move, -1),
+            100_000,
+        )
+
+    def test_board_boundary(self):
+        self.board[9, 0:4] = 1
+
+        self.assertEqual(
+            detect_local_patterns(self.board, (9, 0), 1),
+            10_000,
+        )
+
+    def test_multiple_directions(self):
+        self.board[9, 7:11] = 1
+        self.board[8:11, 9] = 1
+        self.board[8, 8] = 1
+        self.board[10, 10] = 1
+
+        # Free Four + Free Three + Free Three.
+        self.assertEqual(
+            detect_local_patterns(self.board, self.move, 1),
+            102_000,
+        )
+
+    def test_duplicate_patterns(self):
+        self.board[9, 8:11] = 1
+
+        self.assertEqual(
+            detect_local_patterns(self.board, self.move, 1),
+            1_000,
+        )
+
+    def test_ignore_distant_patterns(self):
+        self.board[9, 7:11] = 1
+        self.board[2, 2:6] = 1
+
+        local_score = detect_local_patterns(
+            self.board, self.move, 1
+        )
+        board_score = detect_board_patterns(self.board, 1)
+
+        self.assertEqual(local_score, 100_000)
+        self.assertEqual(board_score, 200_000)
+
+    def test_before_and_after_move(self):
+        self.board[9, 7:10] = 1
+        move = (9, 10)
+
+        before = detect_local_patterns(self.board, move, 1)
+
+        self.board[move] = 1
+
+        after = detect_local_patterns(self.board, move, 1)
+
+        self.assertEqual(before, 1_000)
+        self.assertEqual(after, 100_000)
+        self.assertEqual(after - before, 99_000)
+
+    def test_board_is_not_modified(self):
+        self.board[9, 7:11] = 1
+        original = self.board.copy()
+
+        detect_local_patterns(self.board, self.move, 1)
+
+        np.testing.assert_array_equal(self.board, original)
+
+    def test_consistency_with_board_detection(self):
+        self.board[9, 7:11] = 1
+
+        local_score = detect_local_patterns(
+            self.board, self.move, 1
+        )
+        board_score = detect_board_patterns(self.board, 1)
+
+        self.assertEqual(local_score, board_score)
 
 
 class TestExtractLines(unittest.TestCase):
