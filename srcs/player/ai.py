@@ -90,6 +90,7 @@ class AIPlayer(Player):
         start = perf_counter()
         self.nodes = 0
 
+        # Think about which one is the first order between is_legal and sort
         candidates = self._generate_candidates(game_state)
         candidates = [
             move for move in candidates
