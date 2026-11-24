@@ -60,3 +60,14 @@ CAPTURE_SCORES: dict[int, int] = {
     6: 10_000,
     8: 100_000,
 }
+
+# Unique pattern lengths in descending order.
+PATTERN_LENGTHS = tuple(
+    sorted(
+        {len(pattern) for pattern in STONE_PATTERN_SCORES},
+        reverse=True,
+    )
+)
+
+# Maximum distance required to detect stone patterns.
+PATTERN_RADIUS = max(PATTERN_LENGTHS) - 1
