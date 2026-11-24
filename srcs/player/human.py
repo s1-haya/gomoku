@@ -1,7 +1,7 @@
 from srcs.player.basic import Player
-from numpy import ndarray
+from srcs.gomoku.game_state import GameState
 
 
-class AIPlayer(Player):
-    def get_move(self, board: ndarray) -> tuple[int, int]:
+class HumanPlayer(Player):
+    def get_move(self, game_state: GameState) -> tuple[int, int]:
         pass
