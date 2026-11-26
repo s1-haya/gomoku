@@ -2,7 +2,7 @@
 NAME := Gomoku
 PYTHON := python
 
-.PHONY: all clean fclean re install test
+.PHONY: all clean fclean re install test venv
 
 all:
 

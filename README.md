@@ -23,6 +23,11 @@ source venv/bin/activate
 .\venv\Scripts\Activate.ps1
 ```
 
+\* Deactivate the virtual environment
+```
+deactivate
+```
+
 ### 3. Install dependencies
 
 ```bash
