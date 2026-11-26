@@ -14,7 +14,9 @@ from srcs.board_renderer import (
 from srcs.check_line import check_line
 from srcs.check_three_double import check_three_double
 from srcs.update_board import update_board
-
+from srcs.player.ai import AIPlayer
+from srcs.gomoku.game_state import GameState
+from srcs.gomoku.fake_game_rules import FakeGameRules
 
 def can_place_at(board: np.ndarray, row: int, col: int) -> bool:
     """Check only bounds and whether the cell is empty."""
@@ -50,6 +52,8 @@ def main() -> None:
         }
 
     state = reset_game()
+    rules = FakeGameRules()
+    ai: AIPlayer = AIPlayer(rules=rules)
 
     running = True
     while running:
@@ -114,7 +118,9 @@ def main() -> None:
 
         # 5. AI move after rendering
         if (not game_over) and (state["current_turn"] == STONE_OPPONENT):
-            ai_move = dummy_ai_move(state["board"])
+            game_state = GameState(state["board"], (state["opponent_captured"], state["my_captured"]))
+            ai_move = ai.get_move(game_state)
+            # ai_move = dummy_ai_move(state["board"])
             if ai_move is not None:
                 new_board, captured = update_board(
                     state["board"], ai_move, current_player=STONE_OPPONENT
