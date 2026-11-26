@@ -18,6 +18,7 @@ from srcs.player.ai import AIPlayer
 from srcs.gomoku.game_state import GameState
 from srcs.gomoku.fake_game_rules import FakeGameRules
 
+
 def can_place_at(board: np.ndarray, row: int, col: int) -> bool:
     """Check only bounds and whether the cell is empty."""
     return (
@@ -53,7 +54,7 @@ def main() -> None:
 
     state = reset_game()
     rules = FakeGameRules()
-    ai: AIPlayer = AIPlayer(rules=rules)
+    ai: AIPlayer = AIPlayer(stone=-1, rules=rules, debug=True)
 
     running = True
     while running:

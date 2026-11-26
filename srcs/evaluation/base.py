@@ -1,22 +1,31 @@
-
 from typing import Protocol
 from srcs.gomoku.game_state import GameState
 
 
-class MoveEvaluator(Protocol):
-    """Define the interface for evaluating candidate moves.
+class Evaluator(Protocol):
+    """Define the interface for move and board evaluation.
 
-    Implementations assign a score to a potential move based on
-    the current game state. Higher scores indicate more promising
-    moves for the specified player.
+    Implementations provide two types of heuristic evaluation:
 
-    AIPlayer uses this interface to rank candidate moves without
-    depending on a specific evaluation strategy.
+    - Move evaluation ranks candidate moves by their potential value.
+    - Board evaluation estimates the advantage of a game state
+      from the specified player's perspective.
+
+    AIPlayer uses this interface without depending on a specific
+    evaluation strategy.
     """
-    def score(
+
+    def score_move(
         self,
         state: GameState,
         move: tuple[int, int],
         stone: int,
     ) -> float:
         """Score a candidate move for the given stone."""
+
+    def score_board(
+        self,
+        state: GameState,
+        stone: int,
+    ) -> float:
+        """Evaluate the board from the given player's perspective."""

@@ -8,8 +8,9 @@ import numpy as np
 
 from srcs.player.basic import Player
 from srcs.gomoku.game_state import GameState
-from srcs.evaluation.base import MoveEvaluator
-from srcs.evaluation.simple import SimpleMoveEvaluator
+from srcs.evaluation.base import Evaluator
+from srcs.evaluation.heuristic import HeuristicEvaluator
+from srcs.search_debugger import SearchDebugger
 
 
 class AIPlayer(Player):
@@ -20,23 +21,20 @@ class AIPlayer(Player):
     (minimizing).
 
     Candidate moves are generated near existing stones and ordered
-    using an interchangeable MoveEvaluator. Game rules are provided
+    using an interchangeable Evaluator. Game rules are provided
     externally, keeping the AI independent of rule implementations.
 
     The current board evaluation is a simple heuristic intended
     for initial testing and benchmarking, not competitive play.
-
-    Attributes:
-        nodes: Number of Minimax nodes visited in the last search.
-        elapsed_time: Duration of the last completed search in seconds.
     """
     def __init__(
         self,
-        evaluator: MoveEvaluator | None = None,
+        evaluator: Evaluator | None = None,
         *,
         rules=None,
         stone: int = 1,
         depth: int = 2,
+        debug: bool = False,
     ):
         super().__init__()
 
@@ -46,16 +44,13 @@ class AIPlayer(Player):
             raise ValueError("depth must be at least 1")
 
         self._evaluator = (
-            evaluator
-            if evaluator is not None
-            else SimpleMoveEvaluator()
+            evaluator if evaluator is not None
+            else HeuristicEvaluator()
         )
         self._rules = rules
         self._stone = stone
         self._depth = depth
-
-        self.nodes = 0
-        self.elapsed_time = 0.0
+        self._debugger = SearchDebugger() if debug else None
 
     def get_move(self, game_state: GameState) -> tuple[int, int]:
         """Select the highest-scoring legal move using Minimax.
@@ -79,58 +74,64 @@ class AIPlayer(Player):
         Raises:
             ValueError: If no rules object was provided or no legal
                 candidate moves are available.
-
-        Note:
-            Updates nodes and elapsed_time for the completed search.
-            The original game state is expected to remain unchanged.
         """
         if self._rules is None:
             raise ValueError("GameRules must be provided")
 
-        start = perf_counter()
-        self.nodes = 0
+        if self._debugger is not None:
+            self._debugger.start()
 
-        # Think about which one is the first order between is_legal and sort
-        candidates = self._generate_candidates(game_state)
-        candidates = [
-            move for move in candidates
-            if self._rules.is_legal_move(
-                game_state, move, self._stone
-            )
-        ]
-        candidates = self._order_candidates(
-            game_state, candidates, self._stone
-        )
+        try:
+            candidates = self._generate_candidates(game_state)
+            candidates = [
+                move for move in candidates
+                if self._rules.is_legal_move(
+                    game_state, move, self._stone
+                )
+            ]
 
-        if not candidates:
-            raise ValueError("No legal candidate moves")
+            if not candidates:
+                raise ValueError("No legal candidate moves")
 
-        best_move = candidates[0]
-        best_score = -inf
-        alpha = -inf
-        beta = inf
-
-        for move in candidates:
-            next_state = self._rules.apply_move(
-                game_state, move, self._stone
+            candidates = self._order_candidates(
+                game_state, candidates, self._stone
             )
 
-            score = self._minimax(
-                next_state,
-                self._depth - 1,
-                maximizing=False,
-                alpha=alpha,
-                beta=beta,
-            )
+            best_move = candidates[0]
+            best_score = -inf
+            alpha = -inf
+            beta = inf
 
-            if score > best_score:
-                best_score = score
-                best_move = move
+            for move in candidates:
+                next_state = self._rules.apply_move(
+                    game_state, move, self._stone
+                )
 
-            alpha = max(alpha, best_score)
+                score = self._minimax(
+                    next_state,
+                    self._depth - 1,
+                    maximizing=False,
+                    alpha=alpha,
+                    beta=beta,
+                )
 
-        self.elapsed_time = perf_counter() - start
-        return best_move
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+
+                alpha = max(alpha, best_score)
+
+            if self._debugger is not None:
+                self._debugger.record_result(
+                    best_score, self._depth
+                )
+
+            return best_move
+
+        finally:
+            if self._debugger is not None:
+                self._debugger.finish()
+                self._debugger.print_stats()
 
     def _generate_candidates(
         self,
@@ -214,7 +215,7 @@ class AIPlayer(Player):
         """
         return sorted(
             candidates,
-            key=lambda move: self._evaluator.score(
+            key=lambda move: self._evaluator.score_move(
                 game_state,
                 move,
                 stone,
@@ -252,19 +253,13 @@ class AIPlayer(Player):
         if not candidates:
             return 0.0
 
-        ai_score = max(
-            self._evaluator.score(
-                game_state, move, self._stone
+        ai_score = self._evaluator.score_board(
+                game_state, self._stone
             )
-            for move in candidates
-        )
 
-        opponent_score = max(
-            self._evaluator.score(
-                game_state, move, -self._stone
+        opponent_score = self._evaluator.score_board(
+                game_state, -self._stone
             )
-            for move in candidates
-        )
 
         return float(ai_score - opponent_score)
 
@@ -282,7 +277,7 @@ class AIPlayer(Player):
         maximizing (AI) and minimizing (opponent) turns.
 
         The search stops when a winner is detected, the game ends,
-        or the remaining depth reaches zero. Non-terminal leaf
+        or the remaining depth reaches zero.c Non-terminal leaf
         states are evaluated using the board heuristic.
 
         Alpha and beta track the best bounds found so far, allowing
@@ -311,15 +306,17 @@ class AIPlayer(Player):
             If no legal candidates are generated, the current
             implementation falls back to the heuristic evaluation.
         """
-        self.nodes += 1
+        if self._debugger is not None:
+            self._debugger.record_node()
 
         winner = self._rules.get_winner(game_state)
+        win_score = 1_000_000_000
 
         if winner == self._stone:
-            return 1_000_000 + depth
+            return win_score + depth
 
         if winner == -self._stone:
-            return -1_000_000 - depth
+            return -win_score - depth
 
         if self._rules.is_terminal(game_state):
             return 0.0
@@ -363,6 +360,8 @@ class AIPlayer(Player):
                 alpha = max(alpha, best_score)
 
                 if alpha >= beta:
+                    if self._debugger is not None:
+                        self._debugger.record_pruning()
                     break
 
             return best_score
@@ -387,6 +386,8 @@ class AIPlayer(Player):
                 beta = min(beta, best_score)
 
                 if alpha >= beta:
+                    if self._debugger is not None:
+                        self._debugger.record_pruning()
                     break
 
             return best_score

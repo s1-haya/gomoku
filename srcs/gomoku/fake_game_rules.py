@@ -97,18 +97,45 @@ class FakeGameRules:
         self,
         state: GameState,
     ) -> int | None:
-        """Return None because winning conditions are not implemented.
-
-        This method exists to provide the same interface as the
-        actual GameRules. It does not detect five-in-a-row or
-        capture-based victories.
+        """Detect five or more consecutive stones.
+        
+        This simplified implementation does not consider captures
+        or capture-based exceptions to winning conditions.
 
         Args:
             state: Game state to inspect.
 
         Returns:
-            Always None, regardless of the board position.
+            The winning stone (1 or -1), or None if no winner exists.
         """
+        board = state.board
+        rows, cols = board.shape
+
+        directions = (
+            (0, 1),
+            (1, 0),
+            (1, 1),
+            (1, -1),
+        )
+
+        for row, col in np.argwhere(board != 0):
+            stone = int(board[row, col])
+
+            for dr, dc in directions:
+                end_row = row + dr * 4
+                end_col = col + dc * 4
+
+                if not (
+                    0 <= end_row < rows
+                    and 0 <= end_col < cols
+                ):
+                    continue
+
+                if all(
+                    board[row + dr * i, col + dc * i] == stone
+                    for i in range(1, 5)
+                ):
+                    return stone
         return None
 
     def is_terminal(
@@ -128,4 +155,7 @@ class FakeGameRules:
             True if every intersection is occupied,
             otherwise False.
         """
-        return not np.any(state.board == 0)
+        return (
+            self.get_winner(state) is not None
+            or not np.any(state.board == 0)
+        )

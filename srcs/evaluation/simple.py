@@ -2,7 +2,7 @@
 from srcs.gomoku.game_state import GameState
 
 
-class SimpleMoveEvaluator:
+class SimpleEvaluator:
     """Evaluate candidate moves using nearby stones and board position.
 
     This is a lightweight heuristic intended for initial AI testing
