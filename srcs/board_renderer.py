@@ -26,7 +26,7 @@ WINDOW_TITLE = "19x19 Board Viewer"
 
 EMPTY_CELL = 0
 STONE_ME = 1
-STONE_OPPONENT = 2
+STONE_OPPONENT = -1
 
 STAR_POINTS = (
     (3, 3), (3, 9), (3, 15),

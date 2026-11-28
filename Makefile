@@ -10,7 +10,7 @@ install:
 	$(PYTHON) -m pip install -r requirements.txt
 
 test:
-	$(PYTHON) -m unittest discover -s tests -v
+	$(PYTHON) -m unittest discover -s tests -p "test_*.py" -v
 
 clean:
 
