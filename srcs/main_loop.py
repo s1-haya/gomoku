@@ -16,7 +16,7 @@ from srcs.check_three_double import check_three_double
 from srcs.update_board import update_board
 from srcs.player.ai import AIPlayer
 from srcs.gomoku.game_state import GameState
-from srcs.gomoku.fake_game_rules import FakeGameRules
+from srcs.gomoku.game_rules import GameRules
 
 
 def can_place_at(board: np.ndarray, row: int, col: int) -> bool:
@@ -52,7 +52,7 @@ def main() -> None:
         }
 
     state = reset_game()
-    rules = FakeGameRules()
+    rules = GameRules()
     ai: AIPlayer = AIPlayer(stone=-1, rules=rules, debug=True)
 
     running = True

@@ -248,20 +248,9 @@ class AIPlayer(Player):
             It does not directly evaluate winning patterns, captures,
             or immediate threats.
         """
-        candidates = self._generate_candidates(game_state)
-
-        if not candidates:
-            return 0.0
-
-        ai_score = self._evaluator.score_board(
-                game_state, self._stone
-            )
-
-        opponent_score = self._evaluator.score_board(
-                game_state, -self._stone
-            )
-
-        return float(ai_score - opponent_score)
+        return self._evaluator.score_board(
+            game_state, self._stone
+        )
 
     def _minimax(
         self,

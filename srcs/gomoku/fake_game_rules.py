@@ -135,6 +135,12 @@ class FakeGameRules:
                     board[row + dr * i, col + dc * i] == stone
                     for i in range(1, 5)
                 ):
+                    print(
+                        f"[WINNER] stone={stone}, "
+                        f"start=({row}, {col}), "
+                        f"end=({end_row}, {end_col}), "
+                        f"direction=({dr}, {dc})"
+                    )
                     return stone
         return None
 
