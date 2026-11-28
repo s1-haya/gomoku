@@ -49,7 +49,6 @@ def main() -> None:
             "current_turn": STONE_ME,
             "last_move": None,
             "winner": None,
-            "notice": None,
         }
 
     state = reset_game()
@@ -85,7 +84,6 @@ def main() -> None:
                         state["board"] = new_board
                         state["my_captured"] += captured
                         state["last_move"] = clicked
-                        state["notice"] = None
 
                         if state["my_captured"] >= CAPTURE_GOAL or check_line(
                             state["board"], STONE_ME
@@ -103,8 +101,6 @@ def main() -> None:
             status_text = "You Win!"
         elif state["winner"] == STONE_OPPONENT:
             status_text = "AI Wins!"
-        elif state["notice"]:
-            status_text = state["notice"]
 
         # 4. Render frame
         renderer.render(
