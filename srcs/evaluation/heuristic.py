@@ -33,5 +33,10 @@ class HeuristicEvaluator:
         """Evaluate the board from the given player's perspective."""
         own_score = detect_board_patterns(state.board, stone)
         opponent_score = detect_board_patterns(state.board, -stone)
-
+        # print(
+        #     f"Perspective: {stone}, "
+        #     f"Own: {own_score}, "
+        #     f"Opponent: {opponent_score}, "
+        #     f"Evaluation: {own_score - opponent_score}"
+        # )
         return float(own_score - opponent_score)
